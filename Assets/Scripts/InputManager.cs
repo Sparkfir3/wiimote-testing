@@ -3,8 +3,13 @@ using System.Collections;
 using WiimoteApi;
 
 public class InputManager : MonoBehaviour {
-    
+
+    public static InputManager inputs;
     public static Wiimote wiimote;
+
+    private Vector3 wmpOffset;
+
+    public RectTransform pointer;
 
     private void Update() {
         // Find wiimote
@@ -20,6 +25,14 @@ public class InputManager : MonoBehaviour {
             // IMPORTANT - this variable assignment step stops controller latency?
             // yeah I'm confused too but oh well
             ret = wiimote.ReadWiimoteData();
+
+            // WMP stuff
+            if(ret > 0 && wiimote.current_ext == ExtensionController.MOTIONPLUS) {
+                Vector3 offset = new Vector3(-wiimote.MotionPlus.PitchSpeed,
+                                                wiimote.MotionPlus.YawSpeed,
+                                                wiimote.MotionPlus.RollSpeed) / 95f; // Divide by 95Hz (average updates per second from wiimote)
+                wmpOffset += offset;
+            }
         } while(ret > 0);
         
         if(wiimote.Button.a) {
@@ -47,10 +60,15 @@ public class InputManager : MonoBehaviour {
 
             if(wiimote.current_ext == ExtensionController.MOTIONPLUS) {
                 wiimote.MotionPlus.SetZeroValues();
+                wmpOffset = Vector3.zero;
                 Debug.Log("Wii Motion Plus reset");
             }
         }
-        
+
+        // Pointer
+        float[] pointerPos = wiimote.Ir.GetPointingPosition();
+        pointer.anchorMin = new Vector2(pointerPos[0], pointerPos[1]);
+        pointer.anchorMax = new Vector2(pointerPos[0], pointerPos[1]);
     }
 
     private bool FindWiimote() {
@@ -66,12 +84,19 @@ public class InputManager : MonoBehaviour {
             // Acceleration
             //wiimote.Accel.CalibrateAccel(AccelCalibrationStep.A_BUTTON_UP);
 
+            // IR
+            wiimote.SetupIRCamera();
+
             return true;
         } else {
             wiimote = null;
             return false;
         }
     }
+
+    // ---------------------------------------------------------------------------------------------
+
+    #region Wii Motion Plus
 
     private bool FindWMP() {
         if(wiimote.wmp_attached) {
@@ -81,7 +106,38 @@ public class InputManager : MonoBehaviour {
         return false;
     }
 
-    public static Vector3 GetAccelVector() {
+    public Vector3 WMPVectorStandardized() {
+        if(!wiimote.wmp_attached)
+            return Vector3.zero;
+
+        Vector3 wmp = Vector3.zero;
+        MotionPlusData data = wiimote.MotionPlus;
+
+        //Debug.Log(data.YawSpeed);
+        if(Mathf.Abs(data.YawSpeed) > 60)
+            wmp.y = data.YawSpeed / 10;
+
+        return wmp;
+    }
+
+    #endregion
+
+    // ---------------------------------------------------------------------------------------------
+
+    #region Pointer
+
+    public Vector3 PointerToWorldPos(float forwardOffset) {
+        if(pointer.anchorMin == new Vector2(-1f, -1f))
+            return Vector3.zero;
+        
+        return Camera.main.ViewportToWorldPoint(new Vector3(pointer.anchorMin.x, pointer.anchorMin.y, forwardOffset));
+    }
+
+    #endregion Pointer
+
+    // ---------------------------------------------------------------------------------------------
+
+    public Vector3 GetAccelVector() {
         float accel_x;
         float accel_y;
         float accel_z;

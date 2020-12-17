@@ -4,12 +4,10 @@ using WiimoteApi;
 
 public class Cube : MonoBehaviour {
 
-    public enum TestMode { Button, Acceleration, WMP }
+    public enum TestMode { Button, Acceleration, WMP, Pointer }
 
     public TestMode mode;
     private Rigidbody rb;
-
-    MotionPlusData wmpData;
 
     private void Awake() {
         rb = GetComponent<Rigidbody>();
@@ -23,17 +21,39 @@ public class Cube : MonoBehaviour {
                         rb.velocity = Vector3.up * 5f;
                     break;
 
+                // ------------------------------------------------
+
                 case TestMode.Acceleration:
-                    rb.velocity = InputManager.GetAccelVector();
+                    rb.velocity = InputManager.inputs.GetAccelVector();
                     break;
 
+                // ------------------------------------------------
+
                 case TestMode.WMP:
-                    if(InputManager.wiimote.wmp_attached) {
-                        wmpData = InputManager.wiimote.MotionPlus;
-                        rb.velocity = new Vector3(0, wmpData.YawSpeed, 0);
-                        Debug.Log(rb.velocity);
-                    }
+                    Vector3 newVelocity = InputManager.inputs.WMPVectorStandardized();
+                    /*if(newVelocity.magnitude > 0)
+                        Debug.Log(newVelocity);*/
+                    
+                    if(newVelocity.y == 0)
+                        newVelocity.y = rb.velocity.y;
+
+                    if(newVelocity.magnitude > 1f)
+                        rb.velocity = newVelocity;
                     break;
+
+                // ------------------------------------------------
+
+                case TestMode.Pointer:
+                    if(InputManager.wiimote.Button.b) {
+                        Vector3 newPos = InputManager.inputs.PointerToWorldPos(10f);
+                        if(newPos != Vector3.zero) {
+                            transform.position = newPos;
+                        }
+                    }
+
+                    break;
+
+                // ------------------------------------------------
 
                 default:
                     break;
@@ -42,11 +62,21 @@ public class Cube : MonoBehaviour {
 
         if(Input.GetKeyDown(KeyCode.Space)) {
             transform.position = new Vector3(0, 1, 0);
+            rb.velocity = Vector3.zero;
         } else if(Input.GetKeyDown(KeyCode.UpArrow)) {
-            if(mode == TestMode.WMP)
+            if(mode == TestMode.Pointer)
                 mode = 0;
             else
                 mode++;
+            
+            Debug.Log("Cube test mode set to " + mode.ToString());
+        } else if(Input.GetKeyDown(KeyCode.DownArrow)) {
+            if(mode == TestMode.Button)
+                mode = TestMode.Pointer;
+            else
+                mode--;
+
+            Debug.Log("Cube test mode set to " + mode.ToString());
         }
     }
 

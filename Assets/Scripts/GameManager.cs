@@ -18,6 +18,7 @@ public class GameManager : MonoBehaviour {
 
         // Other
         inputs = GetComponent<InputManager>();
+        InputManager.inputs = inputs;
     }
 
 }

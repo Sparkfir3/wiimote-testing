@@ -29,9 +29,7 @@ public class InputTester : MonoBehaviour {
             }*/
         } while(ret > 0);
 
-        if(wiimote.Button.b) {
-            Debug.Log("b down");
-        }
+        
         /*model.a.enabled = wiimote.Button.a;
         model.b.enabled = wiimote.Button.b;
         model.one.enabled = wiimote.Button.one;
