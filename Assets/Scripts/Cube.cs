@@ -51,6 +51,9 @@ public class Cube : MonoBehaviour {
                         }
                     }
 
+                    if(InputManager.wiimote.Button.a)
+                        Debug.Log(InputManager.inputs.AimingAtObject(gameObject));
+
                     break;
 
                 // ------------------------------------------------

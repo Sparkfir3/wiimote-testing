@@ -10,6 +10,11 @@ public class InputManager : MonoBehaviour {
     private Vector3 wmpOffset;
 
     public RectTransform pointer;
+    private Camera cam;
+
+    private void Start() {
+        cam = Camera.main;
+    }
 
     private void Update() {
         // Find wiimote
@@ -35,9 +40,9 @@ public class InputManager : MonoBehaviour {
             }
         } while(ret > 0);
         
-        if(wiimote.Button.a) {
+        /*if(wiimote.Button.a) {
             Debug.Log(GetAccelVector());
-        }
+        }*/
 
         // Wii motion plus
         if(Input.GetKeyDown(KeyCode.Q)) {
@@ -130,7 +135,19 @@ public class InputManager : MonoBehaviour {
         if(pointer.anchorMin == new Vector2(-1f, -1f))
             return Vector3.zero;
         
-        return Camera.main.ViewportToWorldPoint(new Vector3(pointer.anchorMin.x, pointer.anchorMin.y, forwardOffset));
+        return cam.ViewportToWorldPoint(new Vector3(pointer.anchorMin.x, pointer.anchorMin.y, forwardOffset));
+    }
+
+    public bool AimingAtObject(GameObject obj, float maxDistance = 15f) {
+        Vector3 pointerPos = cam.ViewportToWorldPoint(new Vector3(pointer.anchorMin.x, pointer.anchorMin.y, Camera.main.nearClipPlane));
+        Vector3 direction = (pointerPos - cam.transform.position).normalized;
+
+        RaycastHit hit;
+        if(Physics.Raycast(cam.transform.position, direction, out hit, maxDistance)) {
+            if(hit.collider.gameObject == obj)
+                return true;
+        }
+        return false;
     }
 
     #endregion Pointer
