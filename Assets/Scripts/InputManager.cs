@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 using WiimoteApi;
 
@@ -99,6 +99,7 @@ public class InputManager : MonoBehaviour {
         } else {
             foreach(RectTransform anchor in irAnchors)
                 anchor.gameObject.SetActive(false);
+            pointer.transform.rotation = Quaternion.identity;
         }
 
         // Pointer
@@ -127,6 +128,7 @@ public class InputManager : MonoBehaviour {
             // IR
             wiimote.SetupIRCamera();
 
+            Debug.Log("Wiimote found and set up");
             return true;
         } else {
             wiimote = null;
@@ -167,11 +169,31 @@ public class InputManager : MonoBehaviour {
     #region Pointer
 
     private Quaternion GetPointerRotation(Vector2 anchorAPos, Vector2 anchorBPos) {
+        bool faceUp = false;
+        if(wiimote.Accel.GetCalibratedAccelData()[2] > 0)
+            faceUp = true;
+
         Vector2 reference = (anchorBPos - anchorAPos).normalized;
-        float angle = Vector2.Angle(Vector2.up, reference);
-        Debug.Log(reference + " // " + angle);
-        return Quaternion.Euler(0, 0, angle - 90f);
+        /*if(AnchorsFlipped(faceUp)) {
+            reference *= -1f;
+        }*/
+
+        float angle = Vector2.Angle(Vector2.right, reference);
+        if(reference.y > 0)
+            angle = 360f - angle;
+
+        // Bound angle to 0-360
+        angle = angle % 360;
+        if(angle < 0)
+            angle += 360;
+
+        //Debug.Log(reference + " // " + angle + " // Face up: " + faceUp);
+        return Quaternion.Euler(0, 0, angle);
     }
+    
+    /*private bool AnchorsFlipped(bool faceUp) {
+        return faceUp && pointer.transform.rotation.eulerAngles.z > 90 && pointer.transform.rotation.eulerAngles.z < 270;
+    }*/
 
     private Vector3 StabilizePointerPos(Vector3 basePos, Vector3 newPos) {
         float distance = (newPos - basePos).magnitude;
