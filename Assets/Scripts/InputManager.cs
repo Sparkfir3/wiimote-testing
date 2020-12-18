@@ -10,6 +10,9 @@ public class InputManager : MonoBehaviour {
     private Vector3 wmpOffset;
 
     public RectTransform pointer;
+    public RectTransform[] irAnchors;
+    public bool pointerSmoothing;
+    public bool pointerRotate;
     private Camera cam;
 
     private void Start() {
@@ -70,8 +73,40 @@ public class InputManager : MonoBehaviour {
             }
         }
 
+        // Pointer reference/rotation
+        if(pointerRotate) {
+            if(irAnchors.Length < 2) {
+                Debug.LogError("IR anchors not found");
+                return;
+            }
+
+            foreach(RectTransform anchor in irAnchors)
+                anchor.gameObject.SetActive(true);
+
+            float[,] ir = wiimote.Ir.GetProbableSensorBarIR();
+            for(int i = 0; i < 2; i++) {
+                float x = ir[i, 0] / 1023f;
+                float y = ir[i, 1] / 767f;
+                if(x == -1 || y == -1) {
+                    irAnchors[i].anchorMin = new Vector2(0, 0);
+                    irAnchors[i].anchorMax = new Vector2(0, 0);
+                }
+
+                irAnchors[i].anchorMin = new Vector2(x, y);
+                irAnchors[i].anchorMax = new Vector2(x, y);
+            }
+            pointer.rotation = GetPointerRotation(irAnchors[0].localPosition, irAnchors[1].localPosition);
+        } else {
+            foreach(RectTransform anchor in irAnchors)
+                anchor.gameObject.SetActive(false);
+        }
+
         // Pointer
-        float[] pointerPos = wiimote.Ir.GetPointingPosition();
+        Vector2 pointerPos;
+        if(pointerSmoothing)
+            pointerPos = StabilizePointerPos(pointer.anchorMax, new Vector2(wiimote.Ir.GetPointingPosition()[0], wiimote.Ir.GetPointingPosition()[1])); // Smoothed
+        else
+            pointerPos = new Vector2(wiimote.Ir.GetPointingPosition()[0], wiimote.Ir.GetPointingPosition()[1]); // Unsmoothed
         pointer.anchorMin = new Vector2(pointerPos[0], pointerPos[1]);
         pointer.anchorMax = new Vector2(pointerPos[0], pointerPos[1]);
     }
@@ -131,6 +166,23 @@ public class InputManager : MonoBehaviour {
 
     #region Pointer
 
+    private Quaternion GetPointerRotation(Vector2 anchorAPos, Vector2 anchorBPos) {
+        Vector2 reference = (anchorBPos - anchorAPos).normalized;
+        float angle = Vector2.Angle(Vector2.up, reference);
+        Debug.Log(reference + " // " + angle);
+        return Quaternion.Euler(0, 0, angle - 90f);
+    }
+
+    private Vector3 StabilizePointerPos(Vector3 basePos, Vector3 newPos) {
+        float distance = (newPos - basePos).magnitude;
+
+        if(distance < 0.03f)
+            return Vector2.Lerp(basePos, newPos, 0.3f);
+        else if(distance < 0.05f)
+            return Vector2.Lerp(basePos, newPos, 0.7f);
+        return newPos;
+    }
+
     public Vector3 PointerToWorldPos(float forwardOffset) {
         if(pointer.anchorMin == new Vector2(-1f, -1f))
             return Vector3.zero;
@@ -161,8 +213,8 @@ public class InputManager : MonoBehaviour {
 
         float[] accel = wiimote.Accel.GetCalibratedAccelData();
         accel_x = accel[0];
-        accel_y = -accel[2];
-        accel_z = -accel[1];
+        accel_y = accel[2];
+        accel_z = accel[1];
 
         return new Vector3(accel_x, accel_y, accel_z).normalized;
     }
