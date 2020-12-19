@@ -42,7 +42,9 @@ public class InputManager : MonoBehaviour {
                 wmpOffset += offset;
             }
         } while(ret > 0);
-        
+
+        #region Button Debugs and Toggles
+
         /*if(wiimote.Button.a) {
             Debug.Log(GetAccelVector());
         }*/
@@ -73,7 +75,15 @@ public class InputManager : MonoBehaviour {
             }
         }
 
-        // Pointer reference/rotation
+        // Input mode
+        if(Input.GetKeyDown(KeyCode.I)) {
+            wiimote.SendDataReportMode(InputDataType.REPORT_BUTTONS_ACCEL_EXT16);
+            Debug.Log("Updated wiimote input data type");
+        }
+
+        #endregion
+
+        // Pointer anchors and rotation
         if(pointerRotate) {
             if(irAnchors.Length < 2) {
                 Debug.LogError("IR anchors not found");
@@ -82,8 +92,14 @@ public class InputManager : MonoBehaviour {
 
             foreach(RectTransform anchor in irAnchors)
                 anchor.gameObject.SetActive(true);
-
+            
             float[,] ir = wiimote.Ir.GetProbableSensorBarIR();
+            /*string output = "";
+            for(int i = 0; i < ir.Length; i++) {
+                output += "{" + ir + "}\n";
+            }
+            Debug.Log(output);*/
+
             for(int i = 0; i < 2; i++) {
                 float x = ir[i, 0] / 1023f;
                 float y = ir[i, 1] / 767f;
@@ -126,7 +142,7 @@ public class InputManager : MonoBehaviour {
             //wiimote.Accel.CalibrateAccel(AccelCalibrationStep.A_BUTTON_UP);
 
             // IR
-            wiimote.SetupIRCamera();
+            wiimote.SetupIRCamera(IRDataType.EXTENDED);
 
             Debug.Log("Wiimote found and set up");
             return true;
@@ -225,6 +241,54 @@ public class InputManager : MonoBehaviour {
     }
 
     #endregion Pointer
+
+    // ---------------------------------------------------------------------------------------------
+
+    #region Nunchuck
+
+    public float GetNunchuckAxis(string axis) {
+        if(wiimote.current_ext != ExtensionController.NUNCHUCK)
+            throw new System.Exception("Nunchuck not detected");
+        
+        NunchuckData data = wiimote.Nunchuck;
+        int value = 0;
+        switch(axis) {
+            case "Horizontal":
+                value = data.stick[0]; // General range is 35-228
+                break;
+            case "Vertical":
+                value = data.stick[1]; // General range is 27-220
+                break;
+            default:
+                throw new System.ArgumentException("Invalid argument: " + axis + ", expected \"Horizontal\" or \"Vertical\"");
+        }
+
+        // Check if input mode not setup
+        if(value == 0) {
+            wiimote.SendDataReportMode(InputDataType.REPORT_BUTTONS_ACCEL_EXT16);
+            return 0f;
+        }
+
+        // Center is around 128
+        if(value > 112 && value < 144)
+            return 0f;
+        
+        // Set horizontal to similar range as vertical
+        if(axis == "Horizontal")
+            value -= 8;
+
+        // Check for upper/lower bounds
+        if(value > 200)
+            return 1f;
+        else if(value < 47)
+            return -1f;
+
+        // Return normalized value
+        float normalizedValue = (value - 128f) / 128f;
+        return Mathf.Clamp(normalizedValue, -1f, 1f);
+    }
+
+    #endregion
 
     // ---------------------------------------------------------------------------------------------
 

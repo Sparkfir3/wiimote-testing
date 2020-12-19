@@ -251,6 +251,13 @@ public class InputTester : MonoBehaviour {
         }
         GUILayout.EndVertical();
     }
-    
+
+    private void OnApplicationQuit() {
+        if(!(InputManager.inputs && InputManager.inputs.enabled) && wiimote != null) {
+            WiimoteManager.Cleanup(wiimote);
+            wiimote = null;
+        }
+    }
+
 
 }
