@@ -15,6 +15,11 @@ public class InputManager : MonoBehaviour {
     public bool pointerRotate;
     private Camera cam;
 
+    [Header("Shake Detection")]
+    private bool _shaking;
+    private Vector3 prevAccelValue;
+    private float[] prevAccelAngles = new float[5];
+
     private void Start() {
         cam = Camera.main;
     }
@@ -126,6 +131,10 @@ public class InputManager : MonoBehaviour {
             pointerPos = new Vector2(wiimote.Ir.GetPointingPosition()[0], wiimote.Ir.GetPointingPosition()[1]); // Unsmoothed
         pointer.anchorMin = new Vector2(pointerPos[0], pointerPos[1]);
         pointer.anchorMax = new Vector2(pointerPos[0], pointerPos[1]);
+
+        // Shake
+        if(Time.frameCount % 2 == 0) // Every 2 frames
+            CalculateShake();
     }
 
     private bool FindWiimote() {
@@ -292,6 +301,8 @@ public class InputManager : MonoBehaviour {
 
     // ---------------------------------------------------------------------------------------------
 
+    #region Accelerometer
+
     public Vector3 GetAccelVector() {
         float accel_x;
         float accel_y;
@@ -304,7 +315,45 @@ public class InputManager : MonoBehaviour {
 
         return new Vector3(accel_x, accel_y, accel_z).normalized;
     }
-	
+
+    public void CalculateShake() {
+        // Calculate
+        Vector3 nextAccel = GetAccelVector();
+        float angle = Vector3.Angle(nextAccel, prevAccelValue);
+        bool[] flags = new bool[prevAccelAngles.Length - 1];
+
+        for(int i = 0; i < prevAccelAngles.Length - 1; i++) {
+            if(prevAccelAngles[i] < 60) {
+                for(int j = 0; j < flags.Length; j++) {
+                    if(!flags[j]) {
+                        flags[j] = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Determine shaking
+        _shaking = !flags[flags.Length - 1];
+
+        // Update accel and angles
+        for(int i = 0; i < prevAccelAngles.Length - 1; i++) {
+            prevAccelAngles[i] = prevAccelAngles[i + 1];
+        }
+        prevAccelValue = nextAccel;
+        prevAccelAngles[prevAccelAngles.Length - 1] = angle;
+    }
+
+    public bool Shake {
+        get {
+            return _shaking;
+        }
+    }
+
+    #endregion
+
+    // ---------------------------------------------------------------------------------------------
+
     private void OnApplicationQuit() {
         if(wiimote != null) {
             WiimoteManager.Cleanup(wiimote);

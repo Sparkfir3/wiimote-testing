@@ -4,17 +4,24 @@ using WiimoteApi;
 
 public class Cube : MonoBehaviour {
 
-    public enum TestMode { Button, Acceleration, WMP, Nunchuck, Pointer }
+    public enum TestMode { Button, Acceleration, WMP, Nunchuck, Shake, Pointer }
 
     public TestMode mode;
     private Rigidbody rb;
-    
+
+    [Header("Nunchuck")]
+    [Tooltip("Move speed while using the nunchuck.")]
+    public float nunchuckSpeed;
+
+    [Header("Shake")]
+    public float shakeCooldown;
+    public float shakeJump, shakeSpin;
+    private float shakeTimer; // Timer for calculating shake cooldown. 0 is resting, and counts down from shakeCooldown
+
+    [Header("Pointer")]
     [Tooltip("Speed multiplier for when object is being dragged by the pointer.")]
     public float dragSpeedMultiplier;
     private bool held;
-
-    [Tooltip("Move speed while using the nunchuck.")]
-    public float nunchuckSpeed;
 
     private void Awake() {
         rb = GetComponent<Rigidbody>();
@@ -62,6 +69,20 @@ public class Cube : MonoBehaviour {
                         rb.velocity = axis * nunchuckSpeed;
                     } catch(System.Exception e) {
                         Debug.LogError(e + InputManager.wiimote.current_ext.ToString());
+                    }
+                    break;
+
+                // ------------------------------------------------
+
+                case TestMode.Shake:
+                    if(shakeTimer == 0) {
+                        if(InputManager.inputs.Shake) {
+                            rb.velocity = new Vector3(0f, shakeJump, 0f);
+                            rb.angularVelocity = new Vector3(0f, 1f, 1f).normalized * shakeSpin;
+                            shakeTimer = shakeCooldown;
+                        }
+                    } else {
+                        shakeTimer = Mathf.Clamp(shakeTimer - Time.deltaTime, 0, shakeCooldown);
                     }
                     break;
 
