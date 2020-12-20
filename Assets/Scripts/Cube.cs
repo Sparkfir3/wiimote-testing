@@ -4,7 +4,7 @@ using WiimoteApi;
 
 public class Cube : MonoBehaviour {
 
-    public enum TestMode { Button, Acceleration, WMP, Nunchuck, Shake, Pointer }
+    public enum TestMode { Button, Acceleration, WMP, Nunchuck, Shake, Twist, Pointer }
 
     public TestMode mode;
     private Rigidbody rb;
@@ -13,7 +13,7 @@ public class Cube : MonoBehaviour {
     [Tooltip("Move speed while using the nunchuck.")]
     public float nunchuckSpeed;
 
-    [Header("Shake")]
+    [Header("Shake/Twist")]
     public float shakeCooldown;
     public float shakeJump, shakeSpin;
     private float shakeTimer; // Timer for calculating shake cooldown. 0 is resting, and counts down from shakeCooldown
@@ -88,6 +88,20 @@ public class Cube : MonoBehaviour {
 
                 // ------------------------------------------------
 
+                case TestMode.Twist:
+                    if(shakeTimer == 0) {
+                        if(InputManager.inputs.Twisting) {
+                            rb.velocity = new Vector3(0f, shakeJump, 0f);
+                            rb.angularVelocity = new Vector3(0f, 1f, 1f).normalized * shakeSpin;
+                            shakeTimer = shakeCooldown;
+                        }
+                    } else {
+                        shakeTimer = Mathf.Clamp(shakeTimer - Time.deltaTime, 0, shakeCooldown);
+                    }
+                    break;
+
+                // ------------------------------------------------
+
                 case TestMode.Pointer:
                     // Pick up
                     if(!held && InputManager.wiimote.Button.b && InputManager.inputs.AimingAtObject(gameObject))
@@ -110,6 +124,8 @@ public class Cube : MonoBehaviour {
                     break;
             }
         }
+
+        // --------
 
         if(Input.GetKeyDown(KeyCode.Space)) {
             transform.position = new Vector3(0, 1, 0);

@@ -9,16 +9,18 @@ public class InputManager : MonoBehaviour {
 
     private Vector3 wmpOffset;
 
+    [Header("Pointer")]
     public RectTransform pointer;
     public RectTransform[] irAnchors;
     public bool pointerSmoothing;
     public bool pointerRotate;
     private Camera cam;
 
-    [Header("Shake Detection")]
+    [Header("Shake/Twist Detection")]
     private bool _shaking;
     private Vector3 prevAccelValue;
     private float[] prevAccelAngles = new float[5];
+    private float _twistAmount, prevTwistValue;
 
     private void Start() {
         cam = Camera.main;
@@ -33,10 +35,13 @@ public class InputManager : MonoBehaviour {
         }
         wiimote = WiimoteManager.Wiimotes[0];
 
+        // ---
+
         int ret;
         do {
             // IMPORTANT - this variable assignment step stops controller latency?
-            // yeah I'm confused too but oh well
+            // Specifically the assignment part, not the read function.
+            // Yeah I'm confused too but oh well
             ret = wiimote.ReadWiimoteData();
 
             // WMP stuff
@@ -88,6 +93,10 @@ public class InputManager : MonoBehaviour {
 
         #endregion
 
+        // ---
+
+        #region Pointer
+
         // Pointer anchors and rotation
         if(pointerRotate) {
             if(irAnchors.Length < 2) {
@@ -132,10 +141,18 @@ public class InputManager : MonoBehaviour {
         pointer.anchorMin = new Vector2(pointerPos[0], pointerPos[1]);
         pointer.anchorMax = new Vector2(pointerPos[0], pointerPos[1]);
 
-        // Shake
-        if(Time.frameCount % 2 == 0) // Every 2 frames
+        #endregion
+
+        // ---
+
+        // Shake and twist
+        if(Time.frameCount % 2 == 0) { // Every 2 frames
             CalculateShake();
+            CalculateTwist();
+        }
     }
+
+    // -----------------------------------
 
     private bool FindWiimote() {
         WiimoteManager.FindWiimotes();
@@ -193,6 +210,11 @@ public class InputManager : MonoBehaviour {
 
     #region Pointer
 
+    /// <summary>
+    /// Returns the pointer's rotation in relation to its two IR anchors.
+    /// </summary>
+    /// <param name="anchorAPos">Position of the first IR anchor</param>
+    /// <param name="anchorBPos">Position of the second IR anchor</param>
     private Quaternion GetPointerRotation(Vector2 anchorAPos, Vector2 anchorBPos) {
         bool faceUp = false;
         if(wiimote.Accel.GetCalibratedAccelData()[2] > 0)
@@ -220,6 +242,11 @@ public class InputManager : MonoBehaviour {
         return faceUp && pointer.transform.rotation.eulerAngles.z > 90 && pointer.transform.rotation.eulerAngles.z < 270;
     }*/
 
+    /// <summary>
+    /// Returns a lerped/stabilized position for the pointer
+    /// </summary>
+    /// <param name="basePos">The pointer's current position</param>
+    /// <param name="newPos">The position the pointer is attempting to go towards</param>
     private Vector3 StabilizePointerPos(Vector3 basePos, Vector3 newPos) {
         float distance = (newPos - basePos).magnitude;
 
@@ -230,6 +257,10 @@ public class InputManager : MonoBehaviour {
         return newPos;
     }
 
+    /// <summary>
+    /// Returns the world position corresponding to the pointer with the given offset
+    /// </summary>
+    /// <param name="forwardOffset">Units forward from the camera the world position is</param>
     public Vector3 PointerToWorldPos(float forwardOffset) {
         if(pointer.anchorMin == new Vector2(-1f, -1f))
             return Vector3.zero;
@@ -237,6 +268,11 @@ public class InputManager : MonoBehaviour {
         return cam.ViewportToWorldPoint(new Vector3(pointer.anchorMin.x, pointer.anchorMin.y, forwardOffset));
     }
 
+    /// <summary>
+    /// Detects whether or not the pointer is currently aiming at the given game object
+    /// </summary>
+    /// <param name="obj">Game object to look for</param>
+    /// <param name="maxDistance">Maximum distance to check</param>
     public bool AimingAtObject(GameObject obj, float maxDistance = 15f) {
         Vector3 pointerPos = cam.ViewportToWorldPoint(new Vector3(pointer.anchorMin.x, pointer.anchorMin.y, Camera.main.nearClipPlane));
         Vector3 direction = (pointerPos - cam.transform.position).normalized;
@@ -255,6 +291,10 @@ public class InputManager : MonoBehaviour {
 
     #region Nunchuck
 
+    /// <summary>
+    /// Returns a value from -1.0f to 1.0f, representing the joystick's position in the given axis
+    /// </summary>
+    /// <param name="axis">The axis the check for, either "Horizontal" or "Vertical"</param>
     public float GetNunchuckAxis(string axis) {
         if(wiimote.current_ext != ExtensionController.NUNCHUCK)
             throw new System.Exception("Nunchuck not detected");
@@ -303,7 +343,17 @@ public class InputManager : MonoBehaviour {
 
     #region Accelerometer
 
+    /// <summary>
+    /// Returns the wiimote's acceleration data as a vector, normalized.
+    /// </summary>
     public Vector3 GetAccelVector() {
+        return GetAccelVectorRaw().normalized;
+    }
+
+    /// <summary>
+    /// Returns the wiimote's acceleration data as a vector.
+    /// </summary>
+    public Vector3 GetAccelVectorRaw() {
         float accel_x;
         float accel_y;
         float accel_z;
@@ -313,10 +363,12 @@ public class InputManager : MonoBehaviour {
         accel_y = accel[2];
         accel_z = accel[1];
 
-        return new Vector3(accel_x, accel_y, accel_z).normalized;
+        return new Vector3(accel_x, accel_y, accel_z);
     }
 
-    public void CalculateShake() {
+    // -----------------------------------
+
+    private void CalculateShake() {
         // Calculate
         Vector3 nextAccel = GetAccelVector();
         float angle = Vector3.Angle(nextAccel, prevAccelValue);
@@ -344,9 +396,34 @@ public class InputManager : MonoBehaviour {
         prevAccelAngles[prevAccelAngles.Length - 1] = angle;
     }
 
+    /// <summary>
+    /// Whether or not the wiimote is shaking.
+    /// </summary>
     public bool Shake {
         get {
             return _shaking;
+        }
+    }
+    
+    // -----------------------------------
+
+    private void CalculateTwist() {
+        // Calculate
+        float accel = GetAccelVector().x;
+        _twistAmount = accel - prevTwistValue;
+        //Debug.Log("A = " + accel + ", B = " + prevTwistValue + ", dif = " + _twistAmount);
+        prevTwistValue = accel;
+    }
+
+    public bool Twisting {
+        get {
+            return Mathf.Abs(_twistAmount) > 0.6f;
+        }
+    }
+
+    public float TwistAmount {
+        get {
+            return _twistAmount;
         }
     }
 
