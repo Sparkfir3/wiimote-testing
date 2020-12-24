@@ -2,8 +2,9 @@
 using System.Collections;
 using WiimoteApi;
 
-/// This script was taken in parts from the WiimoteDemo.cs script in Flafla2's Unity-Wiimote repo
+/// This script was taken in parts and modified from the WiimoteDemo.cs script in Flafla2's Unity-Wiimote repo
 /// https://github.com/Flafla2/Unity-Wiimote
+/// This script was only used as a reference/bugtest for this scene, for the full functionality of the script please see the original repo
 
 public class InputTester : MonoBehaviour {
 

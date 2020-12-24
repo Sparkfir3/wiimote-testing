@@ -2,10 +2,21 @@ using UnityEngine;
 using System.Collections;
 using WiimoteApi;
 
+/* 
+ * HOW TO SET UP
+ * 
+ * To set up this script, go to Edit > Project Settings > Script Execution Order
+ * Set the WiimoteGetButton script to run before Default Time, and set this script to run before that one
+ * (Same instructions are included in the WiimoteGetButton script)
+ */
+
+public enum Button { A, B, Up, Down, Left, Right, Plus, Minus, Home, One, Two, Z, C };
+
 public class InputManager : MonoBehaviour {
 
     public static InputManager inputs;
     public static Wiimote wiimote;
+    private WiimoteGetButton getButton;
 
     private Vector3 wmpOffset;
 
@@ -22,9 +33,17 @@ public class InputManager : MonoBehaviour {
     private float[] prevAccelAngles = new float[5];
     private float _twistAmount, prevTwistValue;
 
+    // ---------------------------------------------------------------------------------------------
+
+    private void Awake() {
+        getButton = GetComponent<WiimoteGetButton>();
+    }
+
     private void Start() {
         cam = Camera.main;
     }
+
+    // ---------------------------------------------------------------------------------------------
 
     private void Update() {
         // Find wiimote
@@ -34,6 +53,9 @@ public class InputManager : MonoBehaviour {
                 return; // Exit if no wiimote found
         }
         wiimote = WiimoteManager.Wiimotes[0];
+
+        if(GetWiimoteButtonDown(Button.One))
+            Debug.Log("test");
 
         // ---
 
@@ -177,6 +199,25 @@ public class InputManager : MonoBehaviour {
             return false;
         }
     }
+
+    // ---------------------------------------------------------------------------------------------
+
+    #region Get Wiimote Buttons
+    /// Equivalent of Input.GetButton and its variants, but for the wii remote
+
+    public bool GetWiimoteButton(Button button) {
+        return getButton.GetCorrespondingWiimoteButton(button);
+    }
+
+    public bool GetWiimoteButtonDown(Button button) {
+        return getButton.buttonDown[button];
+    }
+
+    public bool GetWiimoteButtonUp(Button button) {
+        return getButton.buttonUp[button];
+    }
+
+    #endregion
 
     // ---------------------------------------------------------------------------------------------
 

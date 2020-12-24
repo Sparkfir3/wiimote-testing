@@ -36,7 +36,7 @@ public class Cube : MonoBehaviour {
             // Switch modes
             switch(mode) {
                 case TestMode.Button:
-                    if(InputManager.wiimote.Button.b) 
+                    if(InputManager.inputs.GetWiimoteButtonDown(Button.B)) 
                         rb.velocity = Vector3.up * 5f;
                     break;
 
