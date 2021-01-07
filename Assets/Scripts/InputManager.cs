@@ -190,7 +190,7 @@ public class InputManager : MonoBehaviour {
             //wiimote.Accel.CalibrateAccel(AccelCalibrationStep.A_BUTTON_UP);
 
             // IR
-            wiimote.SetupIRCamera(IRDataType.EXTENDED);
+            wiimote.SetupIRCamera(IRDataType.BASIC);
 
             Debug.Log("Wiimote found and set up");
             return true;
@@ -356,6 +356,7 @@ public class InputManager : MonoBehaviour {
         // Check if input mode not setup
         if(value == 0) {
             wiimote.SendDataReportMode(InputDataType.REPORT_BUTTONS_ACCEL_EXT16);
+            wiimote.SetupIRCamera(IRDataType.BASIC);
             return 0f;
         }
 
